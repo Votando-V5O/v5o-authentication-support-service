@@ -1,0 +1,54 @@
+server:
+  ssl:
+    certificate: classpath:ssl/server.crt
+    certificate-private-key: classpath:ssl/server.key
+spring:
+  application:
+    name: v5o-authentication-support-service
+  security:
+    oauth2:
+      client:
+        registration:
+          cie:
+            client-id: YOUR_CIE_CLIENT_ID
+            client-secret: YOUR_CIE_CLIENT_SECRET
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - profile
+              - email
+            client-name: CIE
+        provider:
+          cie:
+            authorization-uri: https://idserver.servizicie.interno.gov.it/auth
+            token-uri: https://idserver.servizicie.interno.gov.it/token
+            user-info-uri: https://idserver.servizicie.interno.gov.it/userinfo
+            jwk-set-uri: https://idserver.servizicie.interno.gov.it/jwk
+logging:
+  level:
+    org.springframework.security.oauth2: INFO
+    org.springframework.security.saml2: DEBUG
+    org.springframework.security.web: INFO
+    io.github.votandov5o.*: DEBUG
+    org.springframework.*: DEBUG
+
+info:
+  app:
+    artifact: "@project.artifactId@"
+    name: "@project.name@"
+    version: "@project.version@"
+io:
+  github:
+    votandov5o:
+      v5oauthenticationsupportservice:
+        service-provider:
+          organization:
+            name: Votando V5O
+            display-name: Votando V5O
+            url: https://votando.localnet.org:8080
+          contact:
+            email: mario.rossi@local.net
+            fiscal-code: IT12345678901
+            name: Mario Rossi
+            phone-number: +39 123 4567890

@@ -18,15 +18,20 @@ import java.security.PrivateKey;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class RelyingPartyBuilder {
+    private static final AtomicReference<Boolean> initialized = new AtomicReference<>(Boolean.FALSE);
 
     @SneakyThrows
     public RelyingPartyRegistration buildRelyingParty(String registrationId, String metadataUrl) {
-        InitializationService.initialize();
+        if (Boolean.FALSE.equals(initialized.get())) {
+            InitializationService.initialize();
+            initialized.set(Boolean.TRUE);
+        }
         log.info("Building relying party registration for ID: {}", registrationId);
         return RelyingPartyRegistrations.fromMetadataLocation(metadataUrl)
                 .registrationId(registrationId)

@@ -1,0 +1,12 @@
+services:
+  spid-saml-check:
+    image: italia/spid-saml-check:1.11.1
+    restart: always
+    environment:
+      NODE_EXTRA_CA_CERTS: /usr/local/share/ca-certificates/ca.crt
+    ports:
+      - "8443:8443"
+    volumes:
+      - ../resources/ssl/ca.crt:/usr/local/share/ca-certificates/ca.crt
+    extra_hosts:
+      - "votando.localnet.org:172.17.0.1"

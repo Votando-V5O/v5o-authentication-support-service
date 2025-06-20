@@ -55,11 +55,19 @@ public class IdentityProviderConfiguration {
     }
 
     @Bean
-    @Profile("test")
+    @Profile("local")
     public RelyingPartyRegistration local(RelyingPartyBuilder builder) {
         SSLDisable.execute();
         return builder.buildRelyingParty("local",
                 "https://localhost:8443/demo/metadata.xml");
+    }
+
+    @Bean
+    @Profile("local")
+    public RelyingPartyRegistration localVerify(RelyingPartyBuilder builder) {
+        SSLDisable.execute();
+        return builder.buildRelyingParty("localVerify",
+                "https://localhost:8443/metadata.xml");
     }
 
     @Bean

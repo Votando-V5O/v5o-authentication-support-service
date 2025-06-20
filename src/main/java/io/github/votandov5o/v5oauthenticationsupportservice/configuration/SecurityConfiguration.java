@@ -1,8 +1,17 @@
 package io.github.votandov5o.v5oauthenticationsupportservice.configuration;
 
+import io.github.votandov5o.v5oauthenticationsupportservice.component.CustomAuthenticationSuccessHandler;
 import io.github.votandov5o.v5oauthenticationsupportservice.component.ServiceProviderMetadataResolver;
+import io.github.votandov5o.v5oauthenticationsupportservice.dto.OrganizationDTO;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.opensaml.saml.saml2.core.AuthnContextClassRef;
+import org.opensaml.saml.saml2.core.AuthnContextComparisonTypeEnumeration;
+import org.opensaml.saml.saml2.core.NameIDPolicy;
+import org.opensaml.saml.saml2.core.RequestedAuthnContext;
+import org.opensaml.saml.saml2.core.impl.AuthnContextClassRefBuilder;
+import org.opensaml.saml.saml2.core.impl.NameIDPolicyBuilder;
+import org.opensaml.saml.saml2.core.impl.RequestedAuthnContextBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -10,7 +19,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.saml2.provider.service.registration.InMemoryRelyingPartyRegistrationRepository;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
+import org.springframework.security.saml2.provider.service.web.DefaultRelyingPartyRegistrationResolver;
+import org.springframework.security.saml2.provider.service.web.RelyingPartyRegistrationResolver;
 import org.springframework.security.saml2.provider.service.web.Saml2MetadataFilter;
+import org.springframework.security.saml2.provider.service.web.authentication.OpenSaml4AuthenticationRequestResolver;
+import org.springframework.security.saml2.provider.service.web.authentication.Saml2AuthenticationRequestResolver;
 import org.springframework.security.saml2.provider.service.web.authentication.Saml2WebSsoAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -23,17 +36,21 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    RelyingPartyRegistrationRepository identityProviders,
-                                                   ServiceProviderMetadataResolver metadataResolver) throws Exception {
+                                                   ServiceProviderMetadataResolver metadataResolver,
+                                                   CustomAuthenticationSuccessHandler successHandler) throws Exception {
         Saml2MetadataFilter metadataFilter = new Saml2MetadataFilter(identityProviders, metadataResolver);
 
         http.addFilterBefore(metadataFilter, Saml2WebSsoAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/saml2/service-provider-metadata/**", "/saml2/metadata")
+                        .requestMatchers("/saml2/service-provider-metadata/**",
+                                "/saml2/metadata",
+                                "/login/saml2/sso/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
-                .saml2Login(saml -> saml.relyingPartyRegistrationRepository(identityProviders))
-//                .saml2Metadata(Customizer.withDefaults())
+                .saml2Login(saml -> saml.relyingPartyRegistrationRepository(identityProviders)
+                        .authenticationRequestUriQuery("/login/saml2/sso/{registrationId}")
+                        .successHandler(successHandler))
                 .saml2Logout(Customizer.withDefaults());
 
         return http.build();
@@ -45,4 +62,42 @@ public class SecurityConfiguration {
         return new InMemoryRelyingPartyRegistrationRepository(registrations);
     }
 
+    @Bean
+    Saml2AuthenticationRequestResolver authenticationRequestResolver(RelyingPartyRegistrationRepository identityProviders,
+                                                                     OrganizationDTO spOrganization) {
+        RelyingPartyRegistrationResolver registrationResolver = new DefaultRelyingPartyRegistrationResolver(identityProviders);
+        OpenSaml4AuthenticationRequestResolver authenticationRequestResolver = new OpenSaml4AuthenticationRequestResolver(registrationResolver);
+        authenticationRequestResolver.setAuthnRequestCustomizer(context -> {
+            var authnRequest = context.getAuthnRequest();
+            authnRequest.setForceAuthn(true);
+            authnRequest.setIsPassive((Boolean) null);
+
+            //NameIdPolicy
+            NameIDPolicy nameIDPolicy = new NameIDPolicyBuilder().buildObject();
+            nameIDPolicy.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:transient");
+            authnRequest.setNameIDPolicy(nameIDPolicy);
+
+            //Issuer
+            authnRequest.getIssuer()
+                    .setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:entity");
+            authnRequest.getIssuer()
+                    .setNameQualifier(spOrganization.getUrl());
+
+            // AttributeConsumingServiceIndex
+            authnRequest.setAttributeConsumingServiceIndex(0);
+
+            // RequestedAuthnContext
+            RequestedAuthnContext requestedAuthnContext = new RequestedAuthnContextBuilder().buildObject();
+            requestedAuthnContext.setComparison(AuthnContextComparisonTypeEnumeration.EXACT); // optional: "minimum", "maximum", etc.
+
+            AuthnContextClassRef authnContextClassRef = new AuthnContextClassRefBuilder().buildObject();
+            authnContextClassRef.setURI("https://www.spid.gov.it/SpidL1");
+
+            requestedAuthnContext.getAuthnContextClassRefs()
+                    .add(authnContextClassRef);
+            authnRequest.setRequestedAuthnContext(requestedAuthnContext);
+        });
+        authenticationRequestResolver.setRequestMatcher(request -> request.getRequestURI().matches("/login/saml2/sso/[^/]+"));
+        return authenticationRequestResolver;
+    }
 }
