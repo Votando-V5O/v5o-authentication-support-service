@@ -14,19 +14,33 @@
     <artifactId>v5o-authentication-support-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
-    <url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
     <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
+        <url>https://github.com/Votando-V5O/v5o-authentication-support-service</url>
+        <connection>git://github.com/Votando-V5O/v5o-authentication-support-service.git</connection>
+        <developerConnection>git@github.com:Votando-V5O/v5o-authentication-support-service.git</developerConnection>
     </scm>
+    <issueManagement>
+        <system>Github Issues</system>
+        <url>https://github.com/Votando-V5O/v5o-authentication-support-service/issues</url>
+    </issueManagement>
+    <ciManagement>
+        <system>Github Actions</system>
+        <url>https://github.com/Votando-V5O/v5o-authentication-support-service/actions</url>
+    </ciManagement>
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/Votando-V5O/v5o-authentication-support-service</url>
+        </repository>
+    </distributionManagement>
+    <licenses>
+        <license>
+            <name>MIT license</name>
+            <url>https://opensource.org/license/mit</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
     <repositories>
         <repository>
             <id>shibboleth-releases</id>
