@@ -95,6 +95,10 @@
             <artifactId>spring-security-oauth2-client</artifactId>
             <version>6.5.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
         <!--        <dependency>-->
         <!--            <groupId>it.italia.developers.spid</groupId>-->
         <!--            <artifactId>spid-spring-integration</artifactId>-->

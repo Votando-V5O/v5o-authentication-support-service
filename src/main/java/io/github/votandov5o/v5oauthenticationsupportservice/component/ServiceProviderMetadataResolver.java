@@ -35,6 +35,7 @@ import org.w3c.dom.Element;
 
 import java.io.ByteArrayInputStream;
 import java.text.MessageFormat;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.opensaml.core.xml.config.XMLObjectProviderRegistrySupport.getMarshallerFactory;
@@ -77,15 +78,19 @@ public class ServiceProviderMetadataResolver implements Saml2MetadataResolver {
         RequestedAttribute fiscalNumber = new RequestedAttributeBuilder().buildObject();
         fiscalNumber.setName("fiscalNumber");
         fiscalNumber.setIsRequired(Boolean.TRUE);
+        RequestedAttribute dateOfBirth = new RequestedAttributeBuilder().buildObject();
+        dateOfBirth.setName("dateOfBirth");
+        dateOfBirth.setIsRequired(Boolean.TRUE);
+
 
         AttributeConsumingService attributeConsumingService = new AttributeConsumingServiceBuilder().buildObject();
         attributeConsumingService.setIndex(0);
         attributeConsumingService.getNames()
                 .add(serviceName);
         attributeConsumingService.getRequestedAttributes()
-                .add(spidCode);
-        attributeConsumingService.getRequestedAttributes()
-                .add(fiscalNumber);
+                .addAll(Set.of(spidCode,
+                        fiscalNumber,
+                        dateOfBirth));
         entityDescriptor.getSPSSODescriptor("urn:oasis:names:tc:SAML:2.0:protocol")
                 .getAssertionConsumerServices()
                 .getFirst()
@@ -110,7 +115,7 @@ public class ServiceProviderMetadataResolver implements Saml2MetadataResolver {
                 .add(nameIDFormat);
         entityDescriptor.getSPSSODescriptor("urn:oasis:names:tc:SAML:2.0:protocol")
                 .getSingleLogoutServices()
-                .add(singleLogoutServiceConverterFunction.apply(MessageFormat.format("{0}/logout/saml2/slo", baseUrl)));
+                .add(singleLogoutServiceConverterFunction.apply(MessageFormat.format("{0}/logout", baseUrl)));
         entityDescriptor.getContactPersons()
                 .add(contactPersonConverterFunction.apply(spContact));
         this.signature = signatureConverterFunction.apply(relyingPartyRegistration);

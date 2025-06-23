@@ -1,7 +1,5 @@
 package io.github.votandov5o.v5oauthenticationsupportservice.configuration;
 
-import io.github.votandov5o.v5oauthenticationsupportservice.component.CustomAuthenticationSuccessHandler;
-import io.github.votandov5o.v5oauthenticationsupportservice.component.ServiceProviderMetadataResolver;
 import io.github.votandov5o.v5oauthenticationsupportservice.dto.OrganizationDTO;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -18,10 +16,12 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.saml2.provider.service.authentication.OpenSaml4AuthenticationProvider;
 import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
 import org.springframework.security.saml2.provider.service.authentication.Saml2Authentication;
+import org.springframework.security.saml2.provider.service.metadata.Saml2MetadataResolver;
 import org.springframework.security.saml2.provider.service.registration.InMemoryRelyingPartyRegistrationRepository;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
@@ -32,6 +32,7 @@ import org.springframework.security.saml2.provider.service.web.authentication.Op
 import org.springframework.security.saml2.provider.service.web.authentication.Saml2AuthenticationRequestResolver;
 import org.springframework.security.saml2.provider.service.web.authentication.Saml2WebSsoAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
 import java.util.List;
 
@@ -42,12 +43,14 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    RelyingPartyRegistrationRepository identityProviders,
-                                                   ServiceProviderMetadataResolver metadataResolver,
-                                                   CustomAuthenticationSuccessHandler successHandler) throws Exception {
-        Saml2MetadataFilter metadataFilter = new Saml2MetadataFilter(identityProviders, metadataResolver);
+                                                   Saml2MetadataResolver serviceProviderMetadataResolver,
+                                                   AuthenticationSuccessHandler postSuccessAuthenticationHandler,
+                                                   Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> spidSamlConverter) throws Exception {
+        Saml2MetadataFilter metadataFilter = new Saml2MetadataFilter(identityProviders, serviceProviderMetadataResolver);
         OpenSaml4AuthenticationProvider authenticationProvider = new OpenSaml4AuthenticationProvider();
-        authenticationProvider.setResponseAuthenticationConverter(converter());
+        authenticationProvider.setResponseAuthenticationConverter(spidSamlConverter);
         http.addFilterBefore(metadataFilter, Saml2WebSsoAuthenticationFilter.class)
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/saml2/service-provider-metadata/**",
                                 "/saml2/metadata")
@@ -56,7 +59,7 @@ public class SecurityConfiguration {
                         .authenticated())
                 .saml2Login(saml -> saml.relyingPartyRegistrationRepository(identityProviders)
                         .authenticationManager(new ProviderManager(authenticationProvider))
-                        .successHandler(successHandler)
+                        .successHandler(postSuccessAuthenticationHandler)
                 )
                 .saml2Logout(Customizer.withDefaults());
 
@@ -97,6 +100,7 @@ public class SecurityConfiguration {
             RequestedAuthnContext requestedAuthnContext = new RequestedAuthnContextBuilder().buildObject();
             requestedAuthnContext.setComparison(AuthnContextComparisonTypeEnumeration.MINIMUM);
 
+            // AuthnContextClassRef
             AuthnContextClassRef authnContextClassRef = new AuthnContextClassRefBuilder().buildObject();
             authnContextClassRef.setURI("https://www.spid.gov.it/SpidL1");
 
@@ -107,12 +111,16 @@ public class SecurityConfiguration {
         return authenticationRequestResolver;
     }
 
-    private Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> converter() {
+    @Bean
+    public Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> spidSamlConverter() {
         Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> delegate = OpenSaml4AuthenticationProvider.createDefaultResponseAuthenticationConverter();
         return token -> {
             Saml2Authentication authentication = delegate.convert(token);
+            assert authentication != null;
             Saml2AuthenticatedPrincipal principal = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
-            return new Saml2Authentication(principal, authentication.getSaml2Response(), List.of(new SimpleGrantedAuthority("ROLE_USER")));
+            return new Saml2Authentication(principal,
+                    authentication.getSaml2Response(),
+                    List.of(new SimpleGrantedAuthority("ROLE_USER")));
         };
     }
 }
