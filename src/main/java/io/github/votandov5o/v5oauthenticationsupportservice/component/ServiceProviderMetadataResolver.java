@@ -69,7 +69,7 @@ public class ServiceProviderMetadataResolver implements Saml2MetadataResolver {
 
         // Add AttributeConsumingService with RequestedAttribute
         ServiceName serviceName = new ServiceNameBuilder().buildObject();
-        serviceName.setValue("Votando");
+        serviceName.setValue("Votando V5O");
         serviceName.setXMLLang("it");
         RequestedAttribute spidCode = new RequestedAttributeBuilder().buildObject();
         spidCode.setName("spidCode");

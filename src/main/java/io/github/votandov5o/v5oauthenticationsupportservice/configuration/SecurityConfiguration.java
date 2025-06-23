@@ -14,8 +14,14 @@ import org.opensaml.saml.saml2.core.impl.NameIDPolicyBuilder;
 import org.opensaml.saml.saml2.core.impl.RequestedAuthnContextBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.saml2.provider.service.authentication.OpenSaml4AuthenticationProvider;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
+import org.springframework.security.saml2.provider.service.authentication.Saml2Authentication;
 import org.springframework.security.saml2.provider.service.registration.InMemoryRelyingPartyRegistrationRepository;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
@@ -39,18 +45,19 @@ public class SecurityConfiguration {
                                                    ServiceProviderMetadataResolver metadataResolver,
                                                    CustomAuthenticationSuccessHandler successHandler) throws Exception {
         Saml2MetadataFilter metadataFilter = new Saml2MetadataFilter(identityProviders, metadataResolver);
-
+        OpenSaml4AuthenticationProvider authenticationProvider = new OpenSaml4AuthenticationProvider();
+        authenticationProvider.setResponseAuthenticationConverter(converter());
         http.addFilterBefore(metadataFilter, Saml2WebSsoAuthenticationFilter.class)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/saml2/service-provider-metadata/**",
-                                "/saml2/metadata",
-                                "/login/saml2/sso/**")
+                                "/saml2/metadata")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
                 .saml2Login(saml -> saml.relyingPartyRegistrationRepository(identityProviders)
-                        .authenticationRequestUriQuery("/login/saml2/sso/{registrationId}")
-                        .successHandler(successHandler))
+                        .authenticationManager(new ProviderManager(authenticationProvider))
+                        .successHandler(successHandler)
+                )
                 .saml2Logout(Customizer.withDefaults());
 
         return http.build();
@@ -88,7 +95,7 @@ public class SecurityConfiguration {
 
             // RequestedAuthnContext
             RequestedAuthnContext requestedAuthnContext = new RequestedAuthnContextBuilder().buildObject();
-            requestedAuthnContext.setComparison(AuthnContextComparisonTypeEnumeration.EXACT); // optional: "minimum", "maximum", etc.
+            requestedAuthnContext.setComparison(AuthnContextComparisonTypeEnumeration.MINIMUM);
 
             AuthnContextClassRef authnContextClassRef = new AuthnContextClassRefBuilder().buildObject();
             authnContextClassRef.setURI("https://www.spid.gov.it/SpidL1");
@@ -97,7 +104,15 @@ public class SecurityConfiguration {
                     .add(authnContextClassRef);
             authnRequest.setRequestedAuthnContext(requestedAuthnContext);
         });
-        authenticationRequestResolver.setRequestMatcher(request -> request.getRequestURI().matches("/login/saml2/sso/[^/]+"));
         return authenticationRequestResolver;
+    }
+
+    private Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> converter() {
+        Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> delegate = OpenSaml4AuthenticationProvider.createDefaultResponseAuthenticationConverter();
+        return token -> {
+            Saml2Authentication authentication = delegate.convert(token);
+            Saml2AuthenticatedPrincipal principal = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
+            return new Saml2Authentication(principal, authentication.getSaml2Response(), List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        };
     }
 }

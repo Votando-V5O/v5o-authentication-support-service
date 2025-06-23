@@ -23,7 +23,7 @@ public class IdentityProviderConfiguration {
                 "https://spid.teamsystem.com/idp");
     }
 
-    @Bean
+    //    @Bean
     public RelyingPartyRegistration sielte(RelyingPartyBuilder builder) {
         return builder.buildRelyingParty("sielte",
                 "https://identity.sieltecloud.it/simplesaml/metadata.xml");

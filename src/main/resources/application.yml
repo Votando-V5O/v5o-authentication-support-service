@@ -31,7 +31,7 @@ logging:
     org.springframework.security.saml2: DEBUG
     org.springframework.security.web: INFO
     io.github.votandov5o.*: DEBUG
-    org.springframework.*: DEBUG
+#    org.springframework.*: DEBUG
 
 info:
   app:
